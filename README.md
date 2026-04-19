@@ -8,6 +8,7 @@
 - a scalable repository structure for frontend, backend, docs, and database assets
 
 ## Overview
+<img width="1804" height="814" alt="image" src="https://github.com/user-attachments/assets/192c301c-8971-42aa-a036-892d1be7ca0c" />
 
 ## Repository Structure
 
