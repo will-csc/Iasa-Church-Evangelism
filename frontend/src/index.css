@@ -1,0 +1,87 @@
+@import url('https://fonts.googleapis.com/css2?family=Public+Sans:wght@400;500;600;700;900&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 210 40% 98%;
+    --foreground: 222 47% 11%;
+    --surface: 210 29% 95%;
+    --card: 0 0% 100%;
+    --card-foreground: 222 47% 11%;
+    --primary: 221 83% 53%;
+    --primary-foreground: 0 0% 100%;
+    --primary-deep: 224 64% 33%;
+    --secondary: 214 32% 92%;
+    --secondary-foreground: 224 39% 23%;
+    --muted: 210 33% 96%;
+    --muted-foreground: 215 16% 46%;
+    --accent: 214 95% 93%;
+    --accent-foreground: 224 64% 33%;
+    --border: 214 31% 88%;
+    --input: 214 31% 88%;
+    --ring: 221 83% 53%;
+    --info: 221 83% 53%;
+    --info-foreground: 0 0% 100%;
+    --success: 152 50% 48%;
+    --success-foreground: 154 82% 12%;
+    --warning: 39 92% 50%;
+    --warning-foreground: 28 70% 18%;
+    --danger: 0 84% 60%;
+    --danger-foreground: 0 0% 100%;
+    --sidebar: 221 83% 53%;
+    --sidebar-foreground: 0 0% 100%;
+    --sidebar-accent: 220 81% 60%;
+    --sidebar-accent-foreground: 0 0% 100%;
+    --role-obreiro: 151 60% 89%;
+    --role-diacono: 262 82% 93%;
+    --role-presbitero: 202 89% 91%;
+    --role-evangelista: 44 95% 88%;
+    --chart-1: 221 83% 53%;
+    --chart-2: 152 50% 48%;
+    --card-shadow: 0 18px 34px -28px hsl(221 83% 53% / 0.34), 0 12px 24px -24px hsl(222 47% 11% / 0.2);
+    --card-shadow-hover: 0 22px 38px -24px hsl(221 83% 53% / 0.3), 0 18px 30px -28px hsl(222 47% 11% / 0.22);
+  }
+
+  * {
+    @apply border-border;
+  }
+
+  html {
+    @apply scroll-smooth;
+  }
+
+  body {
+    @apply bg-background font-sans text-foreground antialiased;
+    font-variant-numeric: tabular-nums;
+    min-height: 100vh;
+  }
+
+  #root {
+    min-height: 100vh;
+  }
+
+  h1,
+  h2,
+  h3,
+  h4 {
+    @apply text-primary-deep;
+  }
+
+  button,
+  [role='button'] {
+    @apply focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background;
+  }
+}
+
+@layer components {
+  .surface-card {
+    @apply rounded-2xl border border-border/80 bg-card shadow-card transition duration-200 hover:-translate-y-1 hover:shadow-card-hover;
+  }
+
+  .stat-hero {
+    @apply text-3xl font-black tracking-tighter md:text-4xl;
+  }
+}
