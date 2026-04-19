@@ -1,4 +1,4 @@
-# Painel Pastoral
+# Painel Pastoral - Iasa Church
 
 **Painel Pastoral** is a church and ministry management project focused on:
 
@@ -6,6 +6,9 @@
 - pastoral visit tracking
 - sermon records
 - a scalable repository structure for frontend, backend, docs, and database assets
+
+## Overview
+<img width="1381" height="841" alt="image" src="https://github.com/user-attachments/assets/804a8de9-0b29-4c2e-b828-ed633a595e52" />
 
 ## Repository Structure
 
