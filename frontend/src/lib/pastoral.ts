@@ -4,21 +4,18 @@ import { createJSONStorage, persist } from 'zustand/middleware'
 export type VisitStatus = 'pendente' | 'agendada' | 'realizada'
 
 export type MemberRole =
-  | 'Pastor Presidente'
-  | 'Obreiro'
-  | 'Obreira'
   | 'Diácono'
-  | 'Diaconisa'
-  | 'Presbítero'
-  | 'Evangelista'
+  | 'Pastor'
+  | 'Bispo'
+  | 'Apóstolo'
 
 export interface Member {
   id: string
   name: string
   role: MemberRole
   contact: string
-  email: string
-  baptismDate: string
+  email?: string
+  baptismDate?: string
 }
 
 export interface Visit {
@@ -47,13 +44,10 @@ export const LOGIN_CREDENTIALS = {
 }
 
 export const memberRoles: MemberRole[] = [
-  'Pastor Presidente',
-  'Obreiro',
-  'Obreira',
   'Diácono',
-  'Diaconisa',
-  'Presbítero',
-  'Evangelista',
+  'Pastor',
+  'Bispo',
+  'Apóstolo',
 ]
 
 export const visitStatuses: Array<VisitStatus | 'todas'> = [
@@ -66,13 +60,27 @@ export const visitStatuses: Array<VisitStatus | 'todas'> = [
 export const sermonCategories = ['Fé', 'Evangelismo', 'Discipulado', 'Esperança', 'Família']
 
 export const roleToneMap: Record<MemberRole, string> = {
-  'Pastor Presidente': 'bg-accent text-primary-deep',
-  Obreiro: 'bg-role-obreiro text-success-foreground',
-  Obreira: 'bg-role-obreiro text-success-foreground',
   'Diácono': 'bg-role-diacono text-primary-deep',
-  Diaconisa: 'bg-role-diacono text-primary-deep',
-  'Presbítero': 'bg-role-presbitero text-primary-deep',
-  Evangelista: 'bg-role-evangelista text-warning-foreground',
+  Pastor: 'bg-accent text-primary-deep',
+  Bispo: 'bg-role-presbitero text-primary-deep',
+  'Apóstolo': 'bg-role-evangelista text-warning-foreground',
+}
+
+export function normalizeMemberRole(role: string): MemberRole {
+  switch (role) {
+    case 'Diácono':
+    case 'Diaconisa':
+      return 'Diácono'
+    case 'Bispo':
+      return 'Bispo'
+    case 'Apóstolo':
+      return 'Apóstolo'
+    case 'Pastor':
+    case 'Pastor Presidente':
+      return 'Pastor'
+    default:
+      return 'Pastor'
+  }
 }
 
 export const visitToneMap: Record<VisitStatus, string> = {
@@ -87,6 +95,10 @@ export function formatDate(date: string) {
     month: '2-digit',
     year: 'numeric',
   }).format(new Date(date))
+}
+
+export function formatPhoneNumber(value: string) {
+  return value.replace(/\D/g, '')
 }
 
 export function formatMonthYear(date: Date) {
@@ -109,7 +121,7 @@ const seedMembers: Member[] = [
   {
     id: 'm-1',
     name: 'Pr. João Batista',
-    role: 'Pastor Presidente',
+    role: 'Pastor',
     contact: '(11) 99999-0001',
     email: 'joao@igreja.com',
     baptismDate: '2010-01-14',
@@ -117,7 +129,7 @@ const seedMembers: Member[] = [
   {
     id: 'm-2',
     name: 'Dc. Ana Ferreira',
-    role: 'Diaconisa',
+    role: 'Diácono',
     contact: '(11) 99999-0002',
     email: 'ana@igreja.com',
     baptismDate: '2015-06-19',
@@ -125,7 +137,7 @@ const seedMembers: Member[] = [
   {
     id: 'm-3',
     name: 'Ob. Pedro Santos',
-    role: 'Obreiro',
+    role: 'Bispo',
     contact: '(11) 99999-0003',
     email: 'pedro@igreja.com',
     baptismDate: '2018-03-09',
@@ -133,7 +145,7 @@ const seedMembers: Member[] = [
   {
     id: 'm-4',
     name: 'Ev. Marcos Ribeiro',
-    role: 'Evangelista',
+    role: 'Apóstolo',
     contact: '(11) 99999-0004',
     email: 'marcos@igreja.com',
     baptismDate: '2016-08-31',
@@ -141,7 +153,7 @@ const seedMembers: Member[] = [
   {
     id: 'm-5',
     name: 'Dc. Lúcia Alves',
-    role: 'Diaconisa',
+    role: 'Diácono',
     contact: '(11) 99999-0005',
     email: 'lucia@igreja.com',
     baptismDate: '2019-11-24',
@@ -149,7 +161,7 @@ const seedMembers: Member[] = [
   {
     id: 'm-6',
     name: 'Pb. Ricardo Gomes',
-    role: 'Presbítero',
+    role: 'Pastor',
     contact: '(11) 99999-0006',
     email: 'ricardo@igreja.com',
     baptismDate: '2012-07-13',
@@ -157,7 +169,7 @@ const seedMembers: Member[] = [
   {
     id: 'm-7',
     name: 'Ob. Carla Nascimento',
-    role: 'Obreira',
+    role: 'Bispo',
     contact: '(11) 99999-0007',
     email: 'carla@igreja.com',
     baptismDate: '2020-02-07',
@@ -319,15 +331,23 @@ export const usePastoralStore = create<PastoralState>()(
     (set) => ({
       isAuthenticated: false,
       userName: 'Pastor',
-      members: seedMembers,
+      members: seedMembers.map((member) => ({
+        ...member,
+        role: normalizeMemberRole(member.role),
+      })),
       visits: seedVisits,
       sermons: seedSermons,
       login: (userName) => set({ isAuthenticated: true, userName }),
       logout: () => set({ isAuthenticated: false, userName: 'Pastor' }),
-      addMember: (member) => set((state) => ({ members: [member, ...state.members] })),
+      addMember: (member) =>
+        set((state) => ({
+          members: [{ ...member, role: normalizeMemberRole(member.role) }, ...state.members],
+        })),
       updateMember: (member) =>
         set((state) => ({
-          members: state.members.map((item) => (item.id === member.id ? member : item)),
+          members: state.members.map((item) =>
+            item.id === member.id ? { ...member, role: normalizeMemberRole(member.role) } : item,
+          ),
         })),
       deleteMember: (memberId) =>
         set((state) => ({ members: state.members.filter((item) => item.id !== memberId) })),
@@ -349,6 +369,18 @@ export const usePastoralStore = create<PastoralState>()(
     {
       name: 'painel-pastoral-store',
       storage: createJSONStorage(() => localStorage),
+      merge: (persistedState, currentState) => {
+        const typedState = persistedState as Partial<PastoralState> | undefined
+
+        return {
+          ...currentState,
+          ...typedState,
+          members: (typedState?.members ?? currentState.members).map((member) => ({
+            ...member,
+            role: normalizeMemberRole(member.role),
+          })),
+        }
+      },
       partialize: (state) => ({
         isAuthenticated: state.isAuthenticated,
         userName: state.userName,

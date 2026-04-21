@@ -4,24 +4,18 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { motion, type Variants } from 'framer-motion'
 import type { LucideIcon } from 'lucide-react'
 import {
-  BookOpen,
   CalendarDays,
   Cross,
   HeartHandshake,
   Home,
   LayoutDashboard,
-  Mail,
-  MapPin,
   MapPinned,
   Megaphone,
-  Mic2,
   Pencil,
-  Phone,
   Plus,
   Search,
   ShieldCheck,
   Trash2,
-  User,
   UserCircle2,
   Users,
 } from 'lucide-react'
@@ -75,7 +69,7 @@ import {
   LOGIN_CREDENTIALS,
   formatDate,
   formatMonthYear,
-  getInitials,
+  formatPhoneNumber,
   memberRoles,
   roleToneMap,
   sermonCategories,
@@ -135,18 +129,8 @@ const visitSchema = z.object({
 
 const memberSchema = z.object({
   name: z.string().min(3, 'Informe o nome do membro.'),
-  role: z.enum([
-    'Pastor Presidente',
-    'Obreiro',
-    'Obreira',
-    'Diácono',
-    'Diaconisa',
-    'Presbítero',
-    'Evangelista',
-  ]),
+  role: z.enum(['Diácono', 'Pastor', 'Bispo', 'Apóstolo']),
   contact: z.string().min(8, 'Informe um contato válido.'),
-  email: z.string().email('Informe um e-mail válido.'),
-  baptismDate: z.string().min(1, 'Selecione a data de batismo.'),
 })
 
 const sermonSchema = z.object({
@@ -254,6 +238,30 @@ function StatCard({
           <span className={featured ? 'text-primary-foreground/90' : 'text-primary'}>{title}</span>
         </div>
         <p className={cn('stat-hero', featured ? 'text-primary-foreground' : 'text-foreground')}>{value}</p>
+      </div>
+    </Card>
+  )
+}
+
+function TableCard({
+  title,
+  description,
+  children,
+}: {
+  title: string
+  description?: string
+  children: React.ReactNode
+}) {
+  return (
+    <Card>
+      <div className="space-y-4 p-6">
+        <div>
+          <h2 className="text-xl font-semibold text-primary-deep">{title}</h2>
+          {description ? <p className="mt-1 text-sm text-muted-foreground">{description}</p> : null}
+        </div>
+        <div className="overflow-x-auto rounded-2xl border border-border/80">
+          {children}
+        </div>
       </div>
     </Card>
   )
@@ -414,7 +422,7 @@ function buildTrendData(visits: Visit[], members: Member[]) {
     }).length
 
     const monthlyMembers = members.filter((member) => {
-      const baptismDate = new Date(member.baptismDate)
+      const baptismDate = new Date(member.baptismDate ?? now)
       return baptismDate.getMonth() === month && baptismDate.getFullYear() === year
     }).length
 
@@ -438,37 +446,139 @@ function useDashboardData() {
   })
 }
 
-function useVisitsData(search: string, status: VisitStatus | 'todas') {
+function useVisitsData(
+  search: string,
+  status: VisitStatus | 'todas',
+  startMonth: string,
+  endMonth: string,
+) {
   const visits = usePastoralStore((state) => state.visits)
 
   return useQuery({
-    queryKey: ['visits', search, status, visits],
+    queryKey: ['visits', search, status, startMonth, endMonth, visits],
     queryFn: async () => {
       const term = search.trim().toLowerCase()
+      const startDate = startMonth ? new Date(`${startMonth}-01T00:00:00`) : null
+      const endDate = endMonth ? new Date(`${endMonth}-31T23:59:59`) : null
       const list = [...visits]
         .filter((visit) => (status === 'todas' ? true : visit.status === status))
         .filter((visit) =>
           term ? [visit.name, visit.visitor, visit.address].join(' ').toLowerCase().includes(term) : true,
         )
+        .filter((visit) => {
+          const visitDate = new Date(`${visit.date}T12:00:00`)
+          const matchesStart = startDate ? visitDate >= startDate : true
+          const matchesEnd = endDate ? visitDate <= endDate : true
+          return matchesStart && matchesEnd
+        })
         .sort((left, right) => new Date(right.date).getTime() - new Date(left.date).getTime())
 
       return {
         visits: list,
         stats: {
-          total: visits.length,
-          realizada: visits.filter((visit) => visit.status === 'realizada').length,
-          pendente: visits.filter((visit) => visit.status === 'pendente').length,
-          agendada: visits.filter((visit) => visit.status === 'agendada').length,
+          total: list.length,
+          realizada: list.filter((visit) => visit.status === 'realizada').length,
+          pendente: list.filter((visit) => visit.status === 'pendente').length,
+          agendada: list.filter((visit) => visit.status === 'agendada').length,
         },
       }
     },
     initialData: {
-      visits,
+      visits: [...visits]
+        .filter((visit) => (status === 'todas' ? true : visit.status === status))
+        .filter((visit) =>
+          search.trim()
+            ? [visit.name, visit.visitor, visit.address]
+                .join(' ')
+                .toLowerCase()
+                .includes(search.trim().toLowerCase())
+            : true,
+        )
+        .filter((visit) => {
+          const visitDate = new Date(`${visit.date}T12:00:00`)
+          const startDate = startMonth ? new Date(`${startMonth}-01T00:00:00`) : null
+          const endDate = endMonth ? new Date(`${endMonth}-31T23:59:59`) : null
+          const matchesStart = startDate ? visitDate >= startDate : true
+          const matchesEnd = endDate ? visitDate <= endDate : true
+          return matchesStart && matchesEnd
+        })
+        .sort((left, right) => new Date(right.date).getTime() - new Date(left.date).getTime()),
       stats: {
-        total: visits.length,
-        realizada: visits.filter((visit) => visit.status === 'realizada').length,
-        pendente: visits.filter((visit) => visit.status === 'pendente').length,
-        agendada: visits.filter((visit) => visit.status === 'agendada').length,
+        total: [...visits]
+          .filter((visit) => (status === 'todas' ? true : visit.status === status))
+          .filter((visit) =>
+            search.trim()
+              ? [visit.name, visit.visitor, visit.address]
+                  .join(' ')
+                  .toLowerCase()
+                  .includes(search.trim().toLowerCase())
+              : true,
+          )
+          .filter((visit) => {
+            const visitDate = new Date(`${visit.date}T12:00:00`)
+            const startDate = startMonth ? new Date(`${startMonth}-01T00:00:00`) : null
+            const endDate = endMonth ? new Date(`${endMonth}-31T23:59:59`) : null
+            const matchesStart = startDate ? visitDate >= startDate : true
+            const matchesEnd = endDate ? visitDate <= endDate : true
+            return matchesStart && matchesEnd
+          }).length,
+        realizada: [...visits]
+          .filter((visit) => (status === 'todas' ? true : visit.status === status))
+          .filter((visit) =>
+            search.trim()
+              ? [visit.name, visit.visitor, visit.address]
+                  .join(' ')
+                  .toLowerCase()
+                  .includes(search.trim().toLowerCase())
+              : true,
+          )
+          .filter((visit) => {
+            const visitDate = new Date(`${visit.date}T12:00:00`)
+            const startDate = startMonth ? new Date(`${startMonth}-01T00:00:00`) : null
+            const endDate = endMonth ? new Date(`${endMonth}-31T23:59:59`) : null
+            const matchesStart = startDate ? visitDate >= startDate : true
+            const matchesEnd = endDate ? visitDate <= endDate : true
+            return matchesStart && matchesEnd
+          })
+          .filter((visit) => visit.status === 'realizada').length,
+        pendente: [...visits]
+          .filter((visit) => (status === 'todas' ? true : visit.status === status))
+          .filter((visit) =>
+            search.trim()
+              ? [visit.name, visit.visitor, visit.address]
+                  .join(' ')
+                  .toLowerCase()
+                  .includes(search.trim().toLowerCase())
+              : true,
+          )
+          .filter((visit) => {
+            const visitDate = new Date(`${visit.date}T12:00:00`)
+            const startDate = startMonth ? new Date(`${startMonth}-01T00:00:00`) : null
+            const endDate = endMonth ? new Date(`${endMonth}-31T23:59:59`) : null
+            const matchesStart = startDate ? visitDate >= startDate : true
+            const matchesEnd = endDate ? visitDate <= endDate : true
+            return matchesStart && matchesEnd
+          })
+          .filter((visit) => visit.status === 'pendente').length,
+        agendada: [...visits]
+          .filter((visit) => (status === 'todas' ? true : visit.status === status))
+          .filter((visit) =>
+            search.trim()
+              ? [visit.name, visit.visitor, visit.address]
+                  .join(' ')
+                  .toLowerCase()
+                  .includes(search.trim().toLowerCase())
+              : true,
+          )
+          .filter((visit) => {
+            const visitDate = new Date(`${visit.date}T12:00:00`)
+            const startDate = startMonth ? new Date(`${startMonth}-01T00:00:00`) : null
+            const endDate = endMonth ? new Date(`${endMonth}-31T23:59:59`) : null
+            const matchesStart = startDate ? visitDate >= startDate : true
+            const matchesEnd = endDate ? visitDate <= endDate : true
+            return matchesStart && matchesEnd
+          })
+          .filter((visit) => visit.status === 'agendada').length,
       },
     },
   })
@@ -672,10 +782,8 @@ function MemberDialog({
     resolver: zodResolver(memberSchema),
     defaultValues: {
       name: '',
-      role: 'Obreiro',
+      role: 'Pastor',
       contact: '',
-      email: '',
-      baptismDate: '',
     },
   })
 
@@ -684,10 +792,8 @@ function MemberDialog({
       form.reset(
         initialValue ?? {
           name: '',
-          role: 'Obreiro',
+          role: 'Pastor',
           contact: '',
-          email: '',
-          baptismDate: '',
         },
       )
     }
@@ -697,6 +803,8 @@ function MemberDialog({
     const payload: Member = {
       id: initialValue?.id ?? crypto.randomUUID(),
       ...values,
+      email: initialValue?.email ?? '',
+      baptismDate: initialValue?.baptismDate ?? new Date().toISOString().slice(0, 10),
     }
 
     if (initialValue) {
@@ -736,21 +844,9 @@ function MemberDialog({
               <FieldError message={form.formState.errors.role?.message} />
             </div>
             <div className="grid gap-2">
-              <Label htmlFor="member-baptism">Data de batismo</Label>
-              <Input id="member-baptism" type="date" {...form.register('baptismDate')} />
-              <FieldError message={form.formState.errors.baptismDate?.message} />
-            </div>
-          </div>
-          <div className="grid gap-4 md:grid-cols-2">
-            <div className="grid gap-2">
               <Label htmlFor="member-contact">Contato</Label>
               <Input id="member-contact" {...form.register('contact')} />
               <FieldError message={form.formState.errors.contact?.message} />
-            </div>
-            <div className="grid gap-2">
-              <Label htmlFor="member-email">E-mail</Label>
-              <Input id="member-email" type="email" {...form.register('email')} />
-              <FieldError message={form.formState.errors.email?.message} />
             </div>
           </div>
           <DialogFooter>
@@ -904,7 +1000,7 @@ function DashboardPage() {
     { title: 'Membros', value: members.length, icon: Users, featured: true },
     { title: 'Visitas Realizadas', value: completedVisits, icon: MapPinned },
     { title: 'Pregações', value: sermons.length, icon: Cross, featured: true },
-    { title: 'Pregadores', value: uniquePreachers, icon: BookOpen },
+    { title: 'Visitas Pendentes', value: pendingVisits, icon: HeartHandshake },
   ]
 
   const detailCards = [
@@ -967,21 +1063,6 @@ function DashboardPage() {
     },
   ]
 
-  const alerts = [
-    {
-      title: `${pendingVisits} visita(s) pendente(s)`,
-      description: 'Priorize retornos ainda sem confirmação e avance os acompanhamentos do pastoreio.',
-    },
-    {
-      title: `${scheduledVisits} visita(s) agendada(s)`,
-      description: 'Revise endereços, confirme horários e distribua a equipe antes das próximas saídas.',
-    },
-    {
-      title: `${uniquePreachers} pregadores ativos`,
-      description: 'Acompanhe a escala ministerial e amplie a diversidade de ministros nas próximas semanas.',
-    },
-  ]
-
   return (
     <>
       <Seo title="Painel" description="Painel de gestão pastoral com indicadores, alertas e tendências ministeriais." />
@@ -1017,7 +1098,7 @@ function DashboardPage() {
           ))}
         </motion.div>
 
-        <motion.div variants={pageItemVariants} className="grid gap-4 xl:grid-cols-[2fr_1fr]">
+        <motion.div variants={pageItemVariants}>
           <Card>
             <div className="space-y-6 p-6">
               <div>
@@ -1054,21 +1135,6 @@ function DashboardPage() {
               </div>
             </div>
           </Card>
-
-          <Card>
-            <div className="space-y-4 p-6">
-              <div>
-                <p className="text-sm font-semibold uppercase tracking-wide text-primary">Alertas dinâmicos</p>
-                <h2 className="mt-2 text-xl font-semibold text-primary-deep">Próximas ações</h2>
-              </div>
-              {alerts.map((alert) => (
-                <div key={alert.title} className="rounded-2xl border border-border/80 bg-muted p-4">
-                  <p className="text-sm font-semibold text-primary-deep">{alert.title}</p>
-                  <p className="mt-1 text-sm text-muted-foreground">{alert.description}</p>
-                </div>
-              ))}
-            </div>
-          </Card>
         </motion.div>
       </motion.div>
     </>
@@ -1079,9 +1145,11 @@ function VisitasPage() {
   const deleteVisit = usePastoralStore((state) => state.deleteVisit)
   const [search, setSearch] = useState('')
   const [status, setStatus] = useState<VisitStatus | 'todas'>('todas')
+  const [startMonth, setStartMonth] = useState('')
+  const [endMonth, setEndMonth] = useState('')
   const [dialogOpen, setDialogOpen] = useState(false)
   const [editingVisit, setEditingVisit] = useState<Visit | undefined>()
-  const { data } = useVisitsData(search, status)
+  const { data } = useVisitsData(search, status, startMonth, endMonth)
 
   const stats = [
     { title: 'Total', value: data.stats.total, icon: Home, featured: false },
@@ -1119,7 +1187,7 @@ function VisitasPage() {
           ))}
         </motion.div>
 
-        <motion.div variants={pageItemVariants} className="grid gap-4 md:grid-cols-[1fr_220px]">
+        <motion.div variants={pageItemVariants} className="grid gap-4 md:grid-cols-2 xl:grid-cols-[1.2fr_220px_180px_180px]">
           <SearchField value={search} onChange={setSearch} placeholder="Buscar por pessoa ou visitante..." />
           <select
             aria-label="Filtrar visitas por status"
@@ -1133,67 +1201,86 @@ function VisitasPage() {
               </option>
             ))}
           </select>
+          <Input
+            type="month"
+            aria-label="Filtrar visitas a partir do mês e ano"
+            value={startMonth}
+            onChange={(event) => setStartMonth(event.target.value)}
+            placeholder="Entre"
+          />
+          <Input
+            type="month"
+            aria-label="Filtrar visitas até o mês e ano"
+            value={endMonth}
+            onChange={(event) => setEndMonth(event.target.value)}
+            placeholder="Até"
+          />
         </motion.div>
 
         <motion.div variants={pageItemVariants} className="space-y-4">
           {data.visits.length === 0 ? (
             <EmptyState icon={Home} title="Nenhuma visita encontrada" description="Ajuste os filtros ou cadastre uma nova visita para começar." />
           ) : (
-            data.visits.map((visit) => (
-              <Card key={visit.id}>
-                <div className="space-y-4 p-6">
-                  <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
-                    <div className="space-y-3">
-                      <div className="flex flex-wrap items-center gap-3">
-                        <h2 className="text-2xl font-bold tracking-tight text-primary-deep">{visit.name}</h2>
+            <TableCard title="Tabela de visitas" description="Use os filtros para localizar rapidamente cada registro pastoral.">
+              <table className="min-w-full text-left text-sm">
+                <thead className="bg-muted/70 text-primary-deep">
+                  <tr>
+                    <th className="px-4 py-3 font-semibold">Nome</th>
+                    <th className="px-4 py-3 font-semibold">Visitante</th>
+                    <th className="px-4 py-3 font-semibold">Data</th>
+                    <th className="px-4 py-3 font-semibold">Status</th>
+                    <th className="px-4 py-3 font-semibold">Endereço</th>
+                    <th className="px-4 py-3 font-semibold">Ações</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {data.visits.map((visit) => (
+                    <tr key={visit.id} className="border-t border-border/70 bg-card align-top">
+                      <td className="px-4 py-3 font-semibold text-primary-deep">{visit.name}</td>
+                      <td className="px-4 py-3 text-muted-foreground">{visit.visitor}</td>
+                      <td className="px-4 py-3 text-muted-foreground">{formatDate(visit.date)}</td>
+                      <td className="px-4 py-3">
                         <Badge className={visitToneMap[visit.status]}>{visit.status}</Badge>
-                      </div>
-                      <div className="flex flex-wrap items-center gap-4 text-sm text-muted-foreground">
-                        <span className="inline-flex items-center gap-2">
-                          <MapPin className="h-4 w-4" />
-                          {visit.address}
-                        </span>
-                        <span className="inline-flex items-center gap-2">
-                          <User className="h-4 w-4" />
-                          Visitante: {visit.visitor}
-                        </span>
-                        <span className="inline-flex items-center gap-2">
-                          <CalendarDays className="h-4 w-4" />
-                          {formatDate(visit.date)}
-                        </span>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        aria-label={`Editar visita de ${visit.name}`}
-                        onClick={() => {
-                          setEditingVisit(visit)
-                          setDialogOpen(true)
-                        }}
-                      >
-                        <Pencil className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        aria-label={`Excluir visita de ${visit.name}`}
-                        onClick={() => {
-                          if (window.confirm(`Excluir a visita de ${visit.name}?`)) {
-                            deleteVisit(visit.id)
-                            toast.success('Visita excluída com sucesso.')
-                          }
-                        }}
-                      >
-                        <Trash2 className="h-4 w-4 text-danger" />
-                      </Button>
-                    </div>
-                  </div>
-                  <div className="rounded-2xl bg-muted px-4 py-3 text-sm text-muted-foreground">{visit.notes}</div>
-                </div>
-              </Card>
-            ))
+                      </td>
+                      <td className="px-4 py-3 text-muted-foreground">
+                        <div className="space-y-1">
+                          <p>{visit.address}</p>
+                          <p className="text-xs">{visit.notes}</p>
+                        </div>
+                      </td>
+                      <td className="px-4 py-3">
+                        <div className="flex items-center gap-2">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            aria-label={`Editar visita de ${visit.name}`}
+                            onClick={() => {
+                              setEditingVisit(visit)
+                              setDialogOpen(true)
+                            }}
+                          >
+                            <Pencil className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            aria-label={`Excluir visita de ${visit.name}`}
+                            onClick={() => {
+                              if (window.confirm(`Excluir a visita de ${visit.name}?`)) {
+                                deleteVisit(visit.id)
+                                toast.success('Visita excluída com sucesso.')
+                              }
+                            }}
+                          >
+                            <Trash2 className="h-4 w-4 text-danger" />
+                          </Button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </TableCard>
           )}
         </motion.div>
       </motion.div>
@@ -1207,7 +1294,15 @@ function MembrosPage() {
   const deleteMember = usePastoralStore((state) => state.deleteMember)
   const [dialogOpen, setDialogOpen] = useState(false)
   const [editingMember, setEditingMember] = useState<Member | undefined>()
+  const [search, setSearch] = useState('')
+  const [roleFilter, setRoleFilter] = useState<string>('todos')
   const { data } = useMembersData()
+  const filteredMembers = data.members.filter((member) => {
+    const matchesSearch = member.name.toLowerCase().includes(search.trim().toLowerCase())
+      || formatPhoneNumber(member.contact).includes(formatPhoneNumber(search))
+    const matchesRole = roleFilter === 'todos' ? true : member.role === roleFilter
+    return matchesSearch && matchesRole
+  })
 
   return (
     <>
@@ -1232,68 +1327,79 @@ function MembrosPage() {
           />
         </motion.div>
 
-        <motion.div variants={pageItemVariants} className="grid gap-4 md:max-w-sm">
-          <StatCard title="Total" value={data.stats.total} icon={Users} />
+        <motion.div variants={pageItemVariants} className="grid gap-4 md:grid-cols-[1fr_260px]">
+          <SearchField value={search} onChange={setSearch} placeholder="Buscar por nome ou número..." />
+          <select
+            aria-label="Filtrar membros por cargo"
+            className={selectClassName}
+            value={roleFilter}
+            onChange={(event) => setRoleFilter(event.target.value)}
+          >
+            <option value="todos">Todos os cargos</option>
+            {memberRoles.map((role) => (
+              <option key={role} value={role}>
+                {role}
+              </option>
+            ))}
+          </select>
         </motion.div>
 
-        <motion.div variants={pageItemVariants} className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-          {data.members.map((member) => (
-            <Card key={member.id}>
-              <div className="space-y-4 p-6">
-                <div className="flex items-start justify-between gap-3">
-                  <div className="flex gap-4">
-                    <div className="flex h-14 w-14 items-center justify-center rounded-full bg-primary text-lg font-bold text-primary-foreground">
-                      {getInitials(member.name)}
-                    </div>
-                    <div className="space-y-2">
-                      <h2 className="text-xl font-bold tracking-tight text-primary-deep">{member.name}</h2>
-                      <Badge className={cn('border-transparent', roleToneMap[member.role])}>{member.role}</Badge>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-1">
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      aria-label={`Editar membro ${member.name}`}
-                      onClick={() => {
-                        setEditingMember(member)
-                        setDialogOpen(true)
-                      }}
-                    >
-                      <Pencil className="h-4 w-4" />
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      aria-label={`Excluir membro ${member.name}`}
-                      onClick={() => {
-                        if (window.confirm(`Excluir ${member.name}?`)) {
-                          deleteMember(member.id)
-                          toast.success('Membro excluído com sucesso.')
-                        }
-                      }}
-                    >
-                      <Trash2 className="h-4 w-4 text-danger" />
-                    </Button>
-                  </div>
-                </div>
-                <div className="space-y-2 text-sm text-muted-foreground">
-                  <p className="inline-flex items-center gap-2">
-                    <Phone className="h-4 w-4" />
-                    {member.contact}
-                  </p>
-                  <p className="inline-flex items-center gap-2">
-                    <Mail className="h-4 w-4" />
-                    {member.email}
-                  </p>
-                  <p className="inline-flex items-center gap-2">
-                    <CalendarDays className="h-4 w-4" />
-                    Membro desde {formatDate(member.baptismDate)}
-                  </p>
-                </div>
-              </div>
-            </Card>
-          ))}
+        <motion.div variants={pageItemVariants}>
+          {filteredMembers.length === 0 ? (
+            <EmptyState icon={Users} title="Nenhum membro encontrado" description="Ajuste os filtros ou cadastre um novo membro." />
+          ) : (
+            <TableCard title="Tabela de membros" description="Visualize, filtre e edite apenas os dados essenciais da membresia.">
+              <table className="min-w-full text-left text-sm">
+                <thead className="bg-muted/70 text-primary-deep">
+                  <tr>
+                    <th className="px-4 py-3 font-semibold">Nome</th>
+                    <th className="px-4 py-3 font-semibold">Número</th>
+                    <th className="px-4 py-3 font-semibold">Cargo</th>
+                    <th className="px-4 py-3 font-semibold">Ações</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredMembers.map((member) => (
+                    <tr key={member.id} className="border-t border-border/70 bg-card">
+                      <td className="px-4 py-3 font-semibold text-primary-deep">{member.name}</td>
+                      <td className="px-4 py-3 text-muted-foreground">{member.contact}</td>
+                      <td className="px-4 py-3">
+                        <Badge className={cn('border-transparent', roleToneMap[member.role])}>{member.role}</Badge>
+                      </td>
+                      <td className="px-4 py-3">
+                        <div className="flex items-center gap-2">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            aria-label={`Editar membro ${member.name}`}
+                            onClick={() => {
+                              setEditingMember(member)
+                              setDialogOpen(true)
+                            }}
+                          >
+                            <Pencil className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            aria-label={`Excluir membro ${member.name}`}
+                            onClick={() => {
+                              if (window.confirm(`Excluir ${member.name}?`)) {
+                                deleteMember(member.id)
+                                toast.success('Membro excluído com sucesso.')
+                              }
+                            }}
+                          >
+                            <Trash2 className="h-4 w-4 text-danger" />
+                          </Button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </TableCard>
+          )}
         </motion.div>
       </motion.div>
 
@@ -1306,7 +1412,17 @@ function PregacaoPage() {
   const deleteSermon = usePastoralStore((state) => state.deleteSermon)
   const [dialogOpen, setDialogOpen] = useState(false)
   const [editingSermon, setEditingSermon] = useState<Sermon | undefined>()
+  const [search, setSearch] = useState('')
+  const [categoryFilter, setCategoryFilter] = useState<string>('todas')
   const { data } = useSermonsData()
+  const filteredSermons = data.sermons.filter((sermon) => {
+    const term = search.trim().toLowerCase()
+    const matchesSearch = term
+      ? [sermon.theme, sermon.preacher, sermon.baseVerse].join(' ').toLowerCase().includes(term)
+      : true
+    const matchesCategory = categoryFilter === 'todas' ? true : sermon.category === categoryFilter
+    return matchesSearch && matchesCategory
+  })
 
   return (
     <>
@@ -1331,101 +1447,89 @@ function PregacaoPage() {
           />
         </motion.div>
 
-        <motion.div variants={pageItemVariants} className="grid gap-4 md:grid-cols-2 xl:max-w-2xl">
+        <motion.div variants={pageItemVariants} className="grid gap-4 md:max-w-sm">
           <StatCard title="Pregações" value={data.stats.total} icon={Cross} featured />
-          <StatCard title="Pregadores únicos" value={data.stats.uniquePreachers} icon={Mic2} />
         </motion.div>
 
-        <motion.div variants={pageItemVariants} className="space-y-4">
-          <div>
-            <h2 className="text-2xl font-bold tracking-tight text-primary-deep">Pregadores</h2>
-          </div>
-          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-            {data.preachers.map((preacher) => (
-              <Card key={preacher.name}>
-                <div className="space-y-4 p-6">
-                  <div className="flex items-center gap-4">
-                    <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary text-sm font-bold text-primary-foreground">
-                      {getInitials(preacher.name)}
-                    </div>
-                    <div>
-                      <h3 className="text-xl font-bold text-primary-deep">{preacher.name}</h3>
-                      <p className="text-sm text-muted-foreground">{preacher.count} pregação(ões)</p>
-                    </div>
-                  </div>
-                  <div className="space-y-2 text-sm text-muted-foreground">
-                    <p className="inline-flex items-center gap-2">
-                      <CalendarDays className="h-4 w-4" />
-                      Última: {formatDate(preacher.lastDate)}
-                    </p>
-                    <p className="inline-flex items-center gap-2">
-                      <BookOpen className="h-4 w-4" />
-                      {preacher.latestTheme}
-                    </p>
-                  </div>
-                </div>
-              </Card>
+        <motion.div variants={pageItemVariants} className="grid gap-4 md:grid-cols-[1fr_220px]">
+          <SearchField value={search} onChange={setSearch} placeholder="Buscar por tema, pregador ou versículo..." />
+          <select
+            aria-label="Filtrar pregações por categoria"
+            className={selectClassName}
+            value={categoryFilter}
+            onChange={(event) => setCategoryFilter(event.target.value)}
+          >
+            <option value="todas">Todas as categorias</option>
+            {sermonCategories.map((category) => (
+              <option key={category} value={category}>
+                {category}
+              </option>
             ))}
-          </div>
+          </select>
         </motion.div>
 
-        <motion.div variants={pageItemVariants} className="space-y-4">
-          <div>
-            <h2 className="text-2xl font-bold tracking-tight text-primary-deep">Histórico de Pregações</h2>
-          </div>
-          {data.sermons.map((sermon) => (
-            <Card key={sermon.id}>
-              <div className="flex flex-col gap-4 p-6 md:flex-row md:items-start md:justify-between">
-                <div className="space-y-3">
-                  <h3 className="text-2xl font-bold tracking-tight text-primary-deep">{sermon.theme}</h3>
-                  <div className="flex flex-wrap gap-2">
-                    <Badge className="border-transparent bg-accent text-primary-deep">{sermon.category}</Badge>
-                    <Badge className="border-border bg-muted text-muted-foreground">{sermon.baseVerse}</Badge>
-                  </div>
-                  <div className="flex flex-wrap items-center gap-4 text-sm text-muted-foreground">
-                    <span className="inline-flex items-center gap-2">
-                      <User className="h-4 w-4" />
-                      {sermon.preacher}
-                    </span>
-                    <span className="inline-flex items-center gap-2">
-                      <CalendarDays className="h-4 w-4" />
-                      {formatDate(sermon.date)}
-                    </span>
-                    <span className="inline-flex items-center gap-2">
-                      <BookOpen className="h-4 w-4" />
-                      {sermon.duration} min
-                    </span>
-                  </div>
-                </div>
-                <div className="flex items-center gap-2">
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    aria-label={`Editar pregação ${sermon.theme}`}
-                    onClick={() => {
-                      setEditingSermon(sermon)
-                      setDialogOpen(true)
-                    }}
-                  >
-                    <Pencil className="h-4 w-4" />
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    aria-label={`Excluir pregação ${sermon.theme}`}
-                    onClick={() => {
-                      if (window.confirm(`Excluir a pregação "${sermon.theme}"?`)) {
-                        deleteSermon(sermon.id)
-                        toast.success('Pregação excluída com sucesso.')
-                      }
-                    }}
-                  >
-                    <Trash2 className="h-4 w-4 text-danger" />
-                  </Button>
-                </div>
-              </div>
-            </Card>
-          ))}
+        <motion.div variants={pageItemVariants}>
+          {filteredSermons.length === 0 ? (
+            <EmptyState icon={Cross} title="Nenhuma pregação encontrada" description="Ajuste a busca ou a categoria para continuar." />
+          ) : (
+            <TableCard title="Histórico de pregações" description="Tabela filtrável para acompanhar temas, pregadores e registros da ministração.">
+              <table className="min-w-full text-left text-sm">
+                <thead className="bg-muted/70 text-primary-deep">
+                  <tr>
+                    <th className="px-4 py-3 font-semibold">Tema</th>
+                    <th className="px-4 py-3 font-semibold">Pregador</th>
+                    <th className="px-4 py-3 font-semibold">Data</th>
+                    <th className="px-4 py-3 font-semibold">Versículo</th>
+                    <th className="px-4 py-3 font-semibold">Categoria</th>
+                    <th className="px-4 py-3 font-semibold">Duração</th>
+                    <th className="px-4 py-3 font-semibold">Ações</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredSermons.map((sermon) => (
+                    <tr key={sermon.id} className="border-t border-border/70 bg-card">
+                      <td className="px-4 py-3 font-semibold text-primary-deep">{sermon.theme}</td>
+                      <td className="px-4 py-3 text-muted-foreground">{sermon.preacher}</td>
+                      <td className="px-4 py-3 text-muted-foreground">{formatDate(sermon.date)}</td>
+                      <td className="px-4 py-3 text-muted-foreground">{sermon.baseVerse}</td>
+                      <td className="px-4 py-3">
+                        <Badge className="border-transparent bg-accent text-primary-deep">{sermon.category}</Badge>
+                      </td>
+                      <td className="px-4 py-3 text-muted-foreground">{sermon.duration} min</td>
+                      <td className="px-4 py-3">
+                        <div className="flex items-center gap-2">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            aria-label={`Editar pregação ${sermon.theme}`}
+                            onClick={() => {
+                              setEditingSermon(sermon)
+                              setDialogOpen(true)
+                            }}
+                          >
+                            <Pencil className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            aria-label={`Excluir pregação ${sermon.theme}`}
+                            onClick={() => {
+                              if (window.confirm(`Excluir a pregação "${sermon.theme}"?`)) {
+                                deleteSermon(sermon.id)
+                                toast.success('Pregação excluída com sucesso.')
+                              }
+                            }}
+                          >
+                            <Trash2 className="h-4 w-4 text-danger" />
+                          </Button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </TableCard>
+          )}
         </motion.div>
       </motion.div>
 
